@@ -11,6 +11,7 @@ from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.http import JsonResponse
+from django.conf import settings
 from .models import Video
 from django.views.decorators.csrf import csrf_exempt
 try:
@@ -667,24 +668,62 @@ def about_us(request):
     return render(request, "jobapp/about_us.html", {})
 
 def contact(request):
+    """
+    Simple contact form handler with console output
+    """
+    import logging
+    from datetime import datetime
+    
+    # Configure logging for this view
+    logger = logging.getLogger(__name__)
+    
     form = ContactForm(request.POST or None)
-    if form.is_valid():
-        instance = form.save()
-        instance.save()
-        return redirect('/')
-    context = {
-        'form': form
-    }
+    
     if request.method == "POST":
-        email= request.POST.get('email')
-        name= request.POST.get('name')
+        email = request.POST.get('email')
+        name = request.POST.get('name')
         message = request.POST.get('message')
-        print(email,name,message)
-        send_mail(
-           "Job Portal - Chat",
-           name + "-" + message,
-           email,
-           ["*"],
-           fail_silently=False,
-        )
+        
+        # Validate form data
+        if not all([email, name, message]):
+            messages.error(request, 'Please fill in all required fields.')
+            logger.warning(f"Incomplete contact form submission from {request.META.get('REMOTE_ADDR', 'unknown')}")
+        else:
+            # Log the contact attempt
+            logger.info(f"📧 Contact form submission from {name} ({email})")
+            
+            # Display message in console
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            print(f"\n{'='*80}")
+            print(f"📧 NEW CONTACT FORM SUBMISSION")
+            print(f"{'='*80}")
+            print(f"📅 Submitted: {current_time}")
+            print(f"👤 Name: {name}")
+            print(f"📧 Email: {email}")
+            print(f"🌍 IP Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+            print(f"{'='*80}")
+            print(f"💬 MESSAGE:")
+            print(f"{'-'*40}")
+            print(f"{message}")
+            print(f"{'='*80}")
+            print(f"📍 Contact them at: {email}")
+            print(f"{'='*80}\n")
+            
+            # Show success message to user
+            messages.success(request, 
+                '✅ Thank you for your message! We have received your inquiry and will get back to you soon.')
+            logger.info(f"✅ Contact form processed successfully for {name}")
+            
+            # Redirect to clear the form
+            return redirect(request.path + '?sent=1')
+    
+    # Handle success redirect parameter
+    if request.GET.get('sent') == '1':
+        messages.success(request, '✅ Your message has been received! We will contact you soon.')
+    
+    context = {
+        'form': form,
+    }
+    
     return render(request, "jobapp/contact.html", context)

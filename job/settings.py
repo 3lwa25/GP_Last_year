@@ -13,6 +13,16 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 import os
 import django_heroku
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)  # Add override=True to ensure .env values take precedence
+    print("✓ .env file loaded successfully")
+except ImportError:
+    # python-dotenv not installed, use regular environment variables
+    print("⚠ python-dotenv not available, using system environment variables")
+    pass
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -207,15 +217,11 @@ django_heroku.settings(locals())
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Email Configuration - Console Output Only
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = '*'
-EMAIL_HOST_PASSWORD = '*'
-EMAIL_PORT = 57
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
+print("📧 Using console email backend - all emails will be displayed in terminal")
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
+# https://docs.djangoproject.com/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
