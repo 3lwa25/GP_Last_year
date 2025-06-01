@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section class="section-padding">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="main-title text-center">
+                    <h3>{{ applicant.user.get_full_name }}'s Interview Answers</h3>
+                    <p class="mt-3">Position: {{ job.title }} | Progress: {{ answered_count }} / {{ total_count }} questions answered</p>
+                    {% if video_responses_count > 0 %}
+                    <p class="text-info">Video Responses: {{ video_responses_count }} | Formal Answers: {{ formal_answers_count }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-lg-12">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Applicant Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Name:</strong> {{ applicant.user.get_full_name }}</p>
+                                <p><strong>Email:</strong> {{ applicant.user.email }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Applied on:</strong> {{ applicant.timestamp|date:"F d, Y" }}</p>
+                                {% if applicant.similarity_score %}
+                                <p><strong>Video Introduction Score:</strong> {{ applicant.similarity_score|floatformat:2 }}%</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if questions_with_answers %}
+            {% for qa in questions_with_answers %}
+                <div class="row mt-3">
+                    <div class="col-lg-12">
+                        <div class="card mb-2">
+                            <div class="card-header {% if qa.type == 'video' %}bg-warning{% elif qa.question.is_general %}bg-primary{% else %}bg-success{% endif %} text-white">
+                                <h5 class="mb-0">
+                                    {% if qa.type == 'video' %}
+                                        <i class="fas fa-video"></i> Video Response: {{ qa.question.question_text }}
+                                        <span class="badge bg-light text-dark float-end">Question ID: {{ qa.question.skill_related }}</span>
+                                    {% else %}
+                                        <i class="fas fa-microphone"></i> Formal Answer: {{ qa.question.question_text }}
+                                        {% if qa.question.skill_related %}
+                                        <span class="badge bg-light text-dark float-end">Skill: {{ qa.question.skill_related }}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if qa.answer %}
+                                    <div class="answer-container">
+                                        <h6>
+                                            {% if qa.type == 'video' %}
+                                                <i class="fas fa-microphone"></i> Transcribed Answer:
+                                            {% else %}
+                                                <i class="fas fa-comment"></i> Transcribed Answer:
+                                            {% endif %}
+                                        </h6>
+                                        
+                                        {% if qa.answer.answer_text %}
+                                            {% if qa.answer.answer_text|first == '[' and qa.answer.answer_text|last == ']' %}
+                                                <!-- Special handling for error messages -->
+                                                <div class="alert alert-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> {{ qa.answer.answer_text }}
+                                                </div>
+                                            {% else %}
+                                                <!-- Normal transcription -->
+                                                <div class="transcription-content">
+                                                    <p class="border-left pl-3" style="border-left: 3px solid #007bff;">{{ qa.answer.answer_text }}</p>
+                                                    <div class="transcription-info text-muted">
+                                                        <small>
+                                                            <i class="fas fa-info-circle"></i> 
+                                                            Transcription length: {{ qa.answer.answer_text|length }} characters
+                                                            {% if qa.answer.transcription and qa.answer.transcription != qa.answer.answer_text %}
+                                                                | Alternative transcription available
+                                                            {% endif %}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No transcription available for this answer.
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Show alternative transcription if different from answer_text -->
+                                        {% if qa.answer.transcription and qa.answer.transcription != qa.answer.answer_text and qa.answer.transcription|first != '[' %}
+                                        <div class="mt-3">
+                                            <h6><i class="fas fa-file-alt"></i> Alternative Transcription:</h6>
+                                            <p class="border-left pl-3" style="border-left: 3px solid #28a745;">{{ qa.answer.transcription }}</p>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if qa.answer.video_file %}
+                                        <div class="video-container mt-3">
+                                            <h6><i class="fas fa-play-circle"></i> Video Recording:</h6>
+                                            <video controls class="w-100" style="max-height: 400px;">
+                                                <source src="{{ qa.answer.video_file.url }}" type="video/webm">
+                                                <source src="{{ qa.answer.video_file.url }}" type="video/mp4">
+                                                Your browser does not support the video element.
+                                            </video>
+                                        </div>
+                                        {% elif qa.answer.audio_file %}
+                                        <div class="audio-container mt-3">
+                                            <h6><i class="fas fa-volume-up"></i> Audio Recording:</h6>
+                                            <audio controls class="w-100">
+                                                <source src="{{ qa.answer.audio_file.url }}" type="audio/webm">
+                                                <source src="{{ qa.answer.audio_file.url }}" type="audio/mp4">
+                                                Your browser does not support the audio element.
+                                            </audio>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if qa.answer.created_at %}
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock"></i> Answered on: {{ qa.answer.created_at|date:"F d, Y g:i A" }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i> This question has not been answered yet.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="row mt-4">
+                <div class="col-lg-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        {% if video_responses_count > 0 %}
+                            This applicant has provided {{ video_responses_count }} video responses during the application process, but no formal interview answers yet.
+                        {% else %}
+                            No questions or answers available for this applicant.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="row mt-4">
+            <div class="col-lg-12 text-center">
+                <a href="{% url 'jobapp:applicants' id=job.id %}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to All Applicants
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add some custom CSS for better styling -->
+<style>
+.border-left {
+    border-left: 3px solid #007bff !important;
+    padding-left: 15px !important;
+    background-color: #f8f9fa;
+    border-radius: 0 5px 5px 0;
+}
+
+.card-header .badge {
+    font-size: 0.75rem;
+}
+
+.answer-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+video, audio {
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %} 

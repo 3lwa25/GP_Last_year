@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">CV Analysis for {{ user.get_full_name }}</h2>
+  
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+  
+  {% if error %}
+    <div class="alert alert-warning">{{ error }}</div>
+  {% endif %}
+  
+  {% if cv_metadata %}
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">
+      <h4 class="mb-0">CV File Information</h4>
+    </div>
+    <div class="card-body">
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><strong>User ID:</strong> {{ user.id }}</li>
+        <li class="list-group-item"><strong>Filename:</strong> {{ cv_metadata.cv_file_name }}</li>
+        <li class="list-group-item"><strong>Submission Date:</strong> {{ cv_metadata.submission_datetime|date:"F d, Y H:i" }}</li>
+        <li class="list-group-item"><strong>Similarity Score:</strong> {{ cv_metadata.similarity_percent }}%</li>
+        {% if cv_metadata.top_qualified_users %}
+          <li class="list-group-item"><strong>Similar Profiles:</strong> {{ cv_metadata.top_qualified_users }}</li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if cv_analysis %}
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">Structured CV Information</h4>
+    </div>
+    <div class="card-body">
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><strong>Name:</strong> {{ cv_analysis.name }}</li>
+        <li class="list-group-item"><strong>Status:</strong> {{ cv_analysis.status }}</li>
+        <li class="list-group-item"><strong>Email:</strong> {{ cv_analysis.email|default:"Not specified" }}</li>
+        <li class="list-group-item"><strong>LinkedIn:</strong> 
+          {% if cv_analysis.linkedin_link %}
+            <a href="{{ cv_analysis.linkedin_link }}" target="_blank">{{ cv_analysis.linkedin_link }}</a>
+          {% else %}
+            Not specified
+          {% endif %}
+        </li>
+        <li class="list-group-item"><strong>Skills:</strong> {{ cv_analysis.skills|default:"Not specified" }}</li>
+        <li class="list-group-item"><strong>Languages:</strong> {{ cv_analysis.language|default:"Not specified" }}</li>
+        <li class="list-group-item"><strong>Degree:</strong> {{ cv_analysis.degree|default:"Not specified" }}</li>
+        <li class="list-group-item"><strong>University:</strong> {{ cv_analysis.university|default:"Not specified" }}</li>
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if parsed_data %}
+    <div class="card mb-4">
+      <div class="card-header bg-success text-white">
+        <h4 class="mb-0">Raw Entity Information</h4>
+      </div>
+      <div class="card-body">
+        {% for entity_type, entities in parsed_data.items %}
+          {% if entity_type != "error" %}
+            <div class="mb-4">
+              <h5>{{ entity_type }}</h5>
+              <ul class="list-group">
+                {% for entity in entities %}
+                  <li class="list-group-item">{{ entity }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    
+    <a href="{% url 'jobapp:applicant-details' user.id %}" class="btn btn-secondary">Back to Applicant Details</a>
+  {% else %}
+    {% if not error %}
+      <div class="alert alert-info">No analysis data available for this applicant.</div>
+    {% endif %}
+    <a href="{% url 'jobapp:applicant-details' user.id %}" class="btn btn-secondary mt-3">Back to Applicant Details</a>
+  {% endif %}
+</div>
+{% endblock %}
+

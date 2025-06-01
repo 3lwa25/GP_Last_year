@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Transcription Result</h1>
+    <p><strong>File:</strong> {{ transcription.media_file.name }}</p>
+    <p><strong>Transcribed Text:</strong></p>
+    <pre>{{ transcription.transcribed_text }}</pre>
+    <a href="{% url 'whisper_vid_audio:upload' %}">Upload or Record Another</a>
+{% endblock %}

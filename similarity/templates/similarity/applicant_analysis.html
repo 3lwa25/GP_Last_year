@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load similarity_extras %}
+
+{% block extra_head %}
+<style>
+    .keyword-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e9ecef;
+        border-radius: 15px;
+        margin: 3px;
+        font-size: 0.9rem;
+    }
+    .keyword-tag.common {
+        background-color: #28a745;
+        color: white;
+    }
+    .metric-card {
+        transition: transform 0.3s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .progress-label {
+        position: absolute;
+        right: 8px;
+        color: #fff;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="section-hero overlay inner-page bg-image" style="background-image: url(/static/images/hero_7.jpg);"
+    id="home-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-7">
+                <h1 class="text-white font-weight-bold">Applicant Analysis</h1>
+                <div class="custom-breadcrumbs">
+                    <a href="{% url 'jobapp:home' %}">Home</a> <span class="mx-2 slash">/</span>
+                    <a href="{% url 'jobapp:dashboard' %}">Dashboard</a> <span class="mx-2 slash">/</span>
+                    <span class="text-white"><strong>Detailed Analysis</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Detailed Similarity Analysis for {{ applicant.user.get_full_name }}</h3>
+                    <p class="mb-0 text-muted">Job: {{ applicant.job.title }}</p>
+                </div>
+                <div class="card-body">
+                    <!-- Overall Score -->
+                    <div class="row mb-4">
+                        <div class="col-md-12 text-center">
+                            <h4>Overall Similarity Score</h4>
+                            <div class="progress" style="height: 30px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ applicant.similarity_score|multiply:100 }}%;" 
+                                     aria-valuenow="{{ applicant.similarity_score|multiply:100 }}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    <span class="progress-label">{{ applicant.similarity_score|multiply:100|floatformat:0 }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Individual Metrics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">TF-IDF Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.tfidf_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.tfidf_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Word frequency similarity</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">SBERT Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.sbert_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.sbert_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Semantic meaning similarity</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">Keyword Overlap</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.keyword_overlap|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.keyword_overlap|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Important terms in common</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">Chunk Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.chunk_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.chunk_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Similarity between text sections</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Keywords Comparison -->
+                    <div class="row mt-5">
+                        <div class="col-md-12">
+                            <h4 class="mb-3">Key Terms Comparison</h4>
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <div class="card">
+                                        <div class="card-header">Job Description Key Terms</div>
+                                        <div class="card-body">
+                                            {% for keyword in job_keywords %}
+                                            <span class="keyword-tag {% if keyword in common_keywords %}common{% endif %}">
+                                                {{ keyword }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                    <div class="text-center">
+                                        <h5>Common Terms:</h5>
+                                        <h3>{{ common_keywords|length }}</h3>
+                                        <div class="mt-2">
+                                            <span class="badge badge-success">Match</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="card">
+                                        <div class="card-header">Interview Transcription Key Terms</div>
+                                        <div class="card-body">
+                                            {% for keyword in transcription_keywords %}
+                                            <span class="keyword-tag {% if keyword in common_keywords %}common{% endif %}">
+                                                {{ keyword }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recommendation Section -->
+                    <div class="row mt-5">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="mb-0">AI Recommendation</h4>
+                                </div>
+                                <div class="card-body">
+                                    {% if applicant.similarity_score > 0.7 %}
+                                    <div class="alert alert-success">
+                                        <h5>Strong Match ({{ applicant.similarity_score|multiply:100|floatformat:0 }}%)</h5>
+                                        <p>This candidate shows excellent alignment with the job requirements. Their interview responses indicate they have the qualifications and experience needed for this position.</p>
+                                        <p>Recommended Action: <strong>Advance to next interview stage</strong></p>
+                                    </div>
+                                    {% elif applicant.similarity_score > 0.5 %}
+                                    <div class="alert alert-info">
+                                        <h5>Good Match ({{ applicant.similarity_score|multiply:100|floatformat:0 }}%)</h5>
+                                        <p>This candidate demonstrates good alignment with the job requirements. Their responses show promising qualifications for the role.</p>
+                                        <p>Recommended Action: <strong>Consider for further evaluation</strong></p>
+                                    </div>
+                                    {% elif applicant.similarity_score > 0.3 %}
+                                    <div class="alert alert-warning">
+                                        <h5>Potential Match ({{ applicant.similarity_score|multiply:100|floatformat:0 }}%)</h5>
+                                        <p>This candidate shows moderate alignment with the job requirements. Their responses indicate some relevant experience but may lack certain important qualifications.</p>
+                                        <p>Recommended Action: <strong>Additional screening recommended</strong></p>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-secondary">
+                                        <h5>Limited Match ({{ applicant.similarity_score|multiply:100|floatformat:0 }}%)</h5>
+                                        <p>This candidate's responses show limited alignment with the job requirements. They may lack key qualifications or experience needed for this role.</p>
+                                        <p>Recommended Action: <strong>Consider other candidates first</strong></p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Back Button -->
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <a href="{% url 'jobapp:applicant-details' applicant.user.id %}?job_id={{ applicant.job.id }}" class="btn btn-secondary">
+                                <i class="icon-arrow-left"></i> Back to Applicant Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

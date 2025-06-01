@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Parsed CV Results</h2>
+    
+    {% if parsed_data.error %}
+        <div class="alert alert-danger">{{ parsed_data.error }}</div>
+    {% else %}
+        {% for entity_type, entities in parsed_data.items %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h3>{{ entity_type }}</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                    {% for entity in entities %}
+                        <li class="list-group-item">{{ entity }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <a href="{% url 'cv_parser:upload_cv' %}" class="btn btn-primary">Parse Another CV</a>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+<!-- results.html -->
+<h1>CV Parsing Results</h1>
+<ul>
+    <li><strong>Name:</strong> {{ parsed_data.name }}</li>
+    <li><strong>Email:</strong> {{ parsed_data.email }}</li>
+    <li><strong>LinkedIn:</strong> {{ parsed_data.linkedin }}</li>
+    <li><strong>Skills:</strong> {{ parsed_data.skills }}</li>
+    <li><strong>Language:</strong> {{ parsed_data.language }}</li>
+    <li><strong>Degree:</strong> {{ parsed_data.degree }}</li>
+    <li><strong>University:</strong> {{ parsed_data.university }}</li>
+    <li><strong>Similarity Percentage:</strong> {{ parsed_data.similarity_percent }}%</li>
+    <li><strong>Top Qualified Users:</strong> {{ parsed_data.top_qualified_users }}</li>
+</ul>

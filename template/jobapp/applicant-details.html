@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% load static %} 
+{% block content %}
+{% load similarity_extras %}
+
+    <!-- HOME -->
+    <section class="section-hero overlay inner-page bg-image" style="background-image: url(/static/images/hero_7.jpg);" id="home-section">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-7">
+            <h1 class="text-white font-weight-bold">{{ applicant.get_full_name }}</h1>
+            <div class="custom-breadcrumbs">
+              <a href="{% url 'jobapp:home' %}">Home</a> <span class="mx-2 slash">/</span>
+              <span class="text-white"><strong>Applicant</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Container -->
+    <div class="container mt-5 mb-5">
+      <div class="row">
+        <!-- Left Column - Candidate Information -->
+        <div class="col-lg-6 mb-4">
+          <div class="candidate-info bg-white p-4 rounded shadow-sm h-100">
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-user-circle text-primary mr-2" style="font-size: 2rem;"></span>
+              <h3 class="text-black mb-0">Candidate Information</h3>
+            </div>
+            
+            <p><strong class="text-black">Name:</strong> {{ applicant.get_full_name }}</p>
+            <p><strong class="text-black">Email:</strong> {{ applicant.email }}</p>
+            <p><strong class="text-black">Mobile Number:</strong> {{ applicant.MobileNumber }}</p>
+            <p><strong class="text-black">Gender:</strong>
+                {% if applicant.gender == 'M' %}
+                    Male
+                {% else %}
+                    Female
+                {% endif %}
+            </p>
+            <p><strong class="text-black">Location:</strong> {{ applicant.location }}</p>
+            <p><strong class="text-black">Skills:</strong> {{ applicant.skills }}</p>
+
+            {% if applicant.CV_file %}
+            <p><strong class="text-black">CV:</strong>
+                <a href="{% url 'account:view_cv' applicant.id %}" target="_blank" class="btn btn-primary btn-sm">
+                    View CV
+                </a>
+            </p>
+            <p><strong class="text-black">Parsed cv data:</strong>
+              <a href="{% url 'cv_parser:analyze_cv' applicant.id %}" class="btn btn-primary btn-sm">
+                  Analyze CV
+              </a>
+            </p>          
+            {% else %}
+            <p><strong class="text-black text-danger">No CV uploaded.</strong></p>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Right Column - Application Details -->
+        <div class="col-lg-6 mb-4">
+          {% if application %}
+          <div class="application-details bg-white p-4 rounded shadow-sm h-100">
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-briefcase text-primary mr-2" style="font-size: 2rem;"></span>
+              <h3 class="text-black mb-0">Application Details</h3>
+            </div>
+            
+            <p><strong class="text-black">Applied for:</strong> {{ application.job.title }}</p>
+            <p><strong class="text-black">Application Date:</strong> {{ application.timestamp|date:"F d, Y" }}</p>
+            
+            <div class="mt-4">
+              <a href="mailto:{{ applicant.email }}" class="btn btn-primary">Contact Candidate</a>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Video & Transcription Row -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="bg-white p-4 rounded shadow-sm">
+            {% if application and application.video %}
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-video-camera text-primary mr-2" style="font-size: 2rem;"></span>
+              <h3 class="text-black mb-0">Video Introduction</h3>
+            </div>
+            
+            <!-- Video Button -->
+            <div class="mb-4">
+              <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#videoModal">
+                <i class="icon-play-circle mr-2"></i> Show Video
+              </button>
+            </div>
+            
+            <!-- Transcription Section -->
+            {% if application.transcription %}
+            <div class="mt-4">
+              <button class="btn btn-outline-primary" id="transcription-toggle">Show Transcription</button>
+              
+              <div class="transcription-container mt-3" id="transcription-content" style="display: none;">
+                <div class="card">
+                  <div class="card-header bg-light">
+                    <h4 class="text-black mb-0">Video Transcription</h4>
+                  </div>
+                  <div class="card-body">
+                    <p>{{ application.transcription }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            
+            <!-- CV Parsed Skills Section -->
+            {% if cv_analysis %}
+            <div class="mt-5">
+              <div class="d-flex align-items-center mb-4">
+                <span class="icon-star-full text-primary mr-2" style="font-size: 2rem;"></span>
+                <h3 class="text-black mb-0">Skills from CV</h3>
+              </div>
+              
+              <div class="card mb-4">
+                <div class="card-header bg-light">
+                  <h4 class="text-black mb-0">Professional Skills</h4>
+                </div>
+                <div class="card-body">
+                  <div class="skills-container">
+                    {% for skill in cv_analysis.skills.split|slice:":15" %}
+                      <span class="badge badge-primary mr-2 mb-2 p-2">{{ skill|title }}</span>
+                    {% empty %}
+                      <p class="text-muted">No skills found in CV data</p>
+                    {% endfor %}
+                  </div>
+                  
+                  {% if application.job.description %}
+                  <div class="mt-4">
+                    <h5 class="text-black">Skills Alignment with Job</h5>
+                    <p class="text-muted mb-3">These skills enhance the candidate's qualification for the position:</p>
+                    <div class="alert alert-info">
+                      <p class="mb-0">The skills extracted from the candidate's CV provide additional qualification evidence beyond the video interview, strengthening their application for this position.</p>
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            
+            <!-- Similarity Analysis Section -->
+          {% if application and application.similarity_score %}
+          <div class="mt-5">
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-bar-chart text-primary mr-2" style="font-size: 2rem;"></span>
+              <h3 class="text-black mb-0">Similarity Analysis</h3>
+            </div>
+            
+            <!-- Similarity Cards -->
+            <div class="card mb-4">
+              <div class="card-header bg-light">
+                <h4 class="text-black mb-0">Job Match Analysis</h4>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <!-- TF-IDF Similarity -->
+                  <div class="col-md-4">
+                    <div class="card text-center">
+                      <div class="card-header">TF-IDF Similarity</div>
+                      <div class="card-body">
+                        <h3>{% widthratio application.tfidf_score 1 100 %}%</h3>
+                        <div class="progress mt-2">
+                          <div class="progress-bar bg-info" role="progressbar" 
+                               style="width: {% widthratio application.tfidf_score 1 100 %}%">
+                          </div>
+                        </div>
+                        <p class="card-text mt-2">
+                          <small>Word frequency similarity</small>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- SBERT Similarity -->
+                  <div class="col-md-4">
+                    <div class="card text-center">
+                      <div class="card-header">Sentence Similarity</div>
+                      <div class="card-body">
+                        <h3>{% widthratio application.sbert_score 1 100 %}%</h3>
+                        <div class="progress mt-2">
+                          <div class="progress-bar bg-primary" role="progressbar" 
+                               style="width: {% widthratio application.sbert_score 1 100 %}%">
+                          </div>
+                        </div>
+                        <p class="card-text mt-2">
+                          <small>Semantic meaning similarity</small>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Combined Score -->
+                  <div class="col-md-4">
+                    <div class="card text-center">
+                      <div class="card-header">Combined Score</div>
+                      <div class="card-body">
+                        <h3>{% widthratio application.similarity_score 1 100 %}%</h3>
+                        <div class="progress mt-2">
+                          <div class="progress-bar bg-success" role="progressbar" 
+                               style="width: {% widthratio application.similarity_score 1 100 %}%">
+                          </div>
+                        </div>
+                        <p class="card-text mt-2">
+                          <small>Overall match score</small>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                    
+                <div class="mt-4">
+                  <p class="mb-2">This analysis shows how well the candidate's profile matches the job requirements based on different similarity metrics.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+            
+            <!-- Video Modal -->
+            <div class="modal fade" id="videoModal" tabindex="-1" role="dialog" aria-labelledby="videoModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="videoModalLabel">Video Introduction</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="embed-responsive embed-responsive-16by9">
+                      <video class="embed-responsive-item" controls>
+                        <source src="{{ application.video.url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+              <p class="mb-0">This applicant has not uploaded a video introduction.</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Interview Questions Row -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="bg-white p-4 rounded shadow-sm">
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-microphone text-primary mr-2" style="font-size: 2rem;"></span>
+              <h3 class="text-black mb-0">Interview Questions & Answers</h3>
+            </div>
+            
+            {% if application %}
+            <div class="mb-4">
+              <a href="{% url 'question_generation:view_applicant_answers' applicant_id=application.id job_id=application.job.id %}" class="btn btn-primary">
+                <i class="icon-list-alt mr-2"></i> View Interview Answers
+              </a>
+              <a href="{% url 'question_generation:view_job_questions' job_id=application.job.id %}" class="btn btn-info ml-2">
+                <i class="icon-question-circle mr-2"></i> View All Questions
+              </a>
+            </div>
+            
+            <div class="alert alert-info">
+              <p class="mb-0">Access the detailed view to see all of the candidate's interview answers including audio recordings and transcriptions.</p>
+            </div>
+            {% else %}
+            <p><strong class="text-black text-danger">No application information available.</strong></p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Other Applications Row -->
+      {% if applied_jobs.count > 1 %}
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="other-applications bg-white p-4 rounded shadow-sm">
+            <div class="d-flex align-items-center mb-4">
+              <span class="icon-briefcase text-primary mr-2" style="font-size: 2rem;"></span>
+              <h4 class="text-black mb-0">Other Applications from this Candidate</h4>
+            </div>
+            <div class="list-group">
+              {% for job_app in applied_jobs %}
+                {% if not job_app.id == application.id %}
+                <a href="{% url 'jobapp:applicant-details' applicant.id %}?job_id={{ job_app.job.id }}" 
+                   class="list-group-item list-group-item-action">
+                  {{ job_app.job.title }} <small class="text-muted">({{ job_app.timestamp|date:"M d, Y" }})</small>
+                </a>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Transcription toggle
+        const transcriptionToggle = document.getElementById('transcription-toggle');
+        const transcriptionContent = document.getElementById('transcription-content');
+        
+        if (transcriptionToggle && transcriptionContent) {
+          transcriptionToggle.addEventListener('click', function() {
+            if (transcriptionContent.style.display === 'none') {
+              transcriptionContent.style.display = 'block';
+              transcriptionToggle.textContent = 'Hide Transcription';
+            } else {
+              transcriptionContent.style.display = 'none';
+              transcriptionToggle.textContent = 'Show Transcription';
+            }
+          });
+        }
+      });
+    </script>
+
+    <style>
+      .candidate-info, .application-details {
+        height: 100%;
+      }
+      .skills-container {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+        transition: transform 0.2s ease;
+      }
+      .badge:hover {
+        transform: translateY(-2px);
+      }
+      .transcription-container {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .progress {
+        height: 20px;
+        border-radius: 10px;
+        background-color: #f5f5f5;
+      }
+      .progress-bar {
+        border-radius: 10px;
+      }
+    </style>
+{% endblock %}

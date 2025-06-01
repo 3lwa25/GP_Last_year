@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <h1>Upload or Record Media</h1>
+    
+    <!-- File Upload Form -->
+    <h2>Upload Video/Audio File</h2>
+    <form method="post" enctype="multipart/form-data" action="{% url 'whisper_vid_audio:upload' %}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload and Transcribe</button>
+    </form>
+
+    <!-- Video Recording Section -->
+    <h2>Record Video</h2>
+    <video id="video" autoplay muted style="width: 640px; height: 480px;"></video>
+    <div>
+        <button id="startButton">Start Recording</button>
+        <button id="stopButton" disabled>Stop Recording</button>
+    </div>
+    <form id="recordForm" method="post" enctype="multipart/form-data" action="{% url 'whisper_vid_audio:upload' %}" style="display: none;">
+        {% csrf_token %}
+        <input type="file" name="recorded_video" id="recordedVideo" accept="video/webm">
+    </form>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM fully loaded!");
+            let recordedBlobs = [];
+
+            document.getElementById('startButton').addEventListener('click', async () => {
+                console.log("Start button clicked!");
+                try {
+                    recordedBlobs = [];
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    console.log("Stream acquired!");
+                    const video = document.getElementById('video');
+                    video.srcObject = stream;
+                    video.play();
+
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data && event.data.size > 0) {
+                            recordedBlobs.push(event.data);
+                        }
+                    };
+                    mediaRecorder.onstop = () => {
+                        console.log("Recording stopped!");
+                        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+                        const file = new File([blob], 'recorded_video.webm', { type: 'video/webm' });
+                        const input = document.getElementById('recordedVideo');
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        input.files = dataTransfer.files;
+                        document.getElementById('recordForm').submit();
+                    };
+
+                    mediaRecorder.start();
+                    console.log("Recording started!");
+                    document.getElementById('startButton').disabled = true;
+                    document.getElementById('stopButton').disabled = false;
+
+                    document.getElementById('stopButton').onclick = () => {
+                        console.log("Stop button clicked!");
+                        mediaRecorder.stop();
+                        document.getElementById('startButton').disabled = false;
+                        document.getElementById('stopButton').disabled = true;
+
+                        if (video.srcObject) {
+                            video.srcObject.getTracks().forEach(track => track.stop());
+                            video.srcObject = null;
+                        }
+                    };
+                } catch (error) {
+                    console.error("Error in recording:", error);
+                }
+            });
+        });
+    </script>
+{% endblock %}

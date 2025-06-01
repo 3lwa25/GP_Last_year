@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<style>
+    .keyword-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e9ecef;
+        border-radius: 15px;
+        margin: 3px;
+        font-size: 0.9rem;
+    }
+    .keyword-tag.common {
+        background-color: #28a745;
+        color: white;
+    }
+    .metric-card {
+        transition: transform 0.3s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .progress-label {
+        position: absolute;
+        right: 8px;
+        color: #fff;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <h2 class="text-center mb-4">Enhanced Similarity Analysis</h2>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.text1.id_for_label }}">{{ form.text1.label }}</label>
+                            {{ form.text1 }}
+                        </div>
+                        
+                        <div class="form-group mt-3">
+                            <label for="{{ form.text2.id_for_label }}">{{ form.text2.label }}</label>
+                            {{ form.text2 }}
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary">Analyze Similarity</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if analysis %}
+            <div class="card mt-5">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Similarity Analysis Results</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Overall Score -->
+                    <div class="row mb-4">
+                        <div class="col-md-12 text-center">
+                            <h4>Overall Similarity Score</h4>
+                            <div class="progress" style="height: 30px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ percentages.similarity_score }}%;" 
+                                     aria-valuenow="{{ percentages.similarity_score }}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    <span class="progress-label">{{ percentages.similarity_score }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Individual Metrics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">TF-IDF Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.tfidf_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.tfidf_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Word frequency similarity</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">SBERT Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.sbert_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.sbert_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Semantic meaning similarity</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">Keyword Overlap</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.keyword_overlap|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.keyword_overlap|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Important terms in common</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center metric-card h-100">
+                                <div class="card-header">Chunk Similarity</div>
+                                <div class="card-body">
+                                    <h3>{{ analysis.chunk_similarity|floatformat:2|multiply:100 }}%</h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ analysis.chunk_similarity|floatformat:2|multiply:100 }}%">
+                                        </div>
+                                    </div>
+                                    <p class="card-text mt-2">
+                                        <small>Similarity between text sections</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Keywords Comparison -->
+                    <div class="row mt-5">
+                        <div class="col-md-12">
+                            <h4 class="mb-3">Key Terms Comparison</h4>
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <div class="card">
+                                        <div class="card-header">Text 1 Key Terms</div>
+                                        <div class="card-body">
+                                            {% for keyword in keywords1 %}
+                                            <span class="keyword-tag {% if keyword in common_keywords %}common{% endif %}">
+                                                {{ keyword }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                    <div class="text-center">
+                                        <h5>Common Terms:</h5>
+                                        <h3>{{ common_keywords|length }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="card">
+                                        <div class="card-header">Text 2 Key Terms</div>
+                                        <div class="card-body">
+                                            {% for keyword in keywords2 %}
+                                            <span class="keyword-tag {% if keyword in common_keywords %}common{% endif %}">
+                                                {{ keyword }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

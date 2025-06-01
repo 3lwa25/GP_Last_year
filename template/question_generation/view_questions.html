@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section class="section-padding">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="main-title text-center">
+                    <h3>Interview Questions for {{ job.title }}</h3>
+                    <p class="mt-3">Total Questions: {{ total_questions }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">General Questions</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if general_questions %}
+                            <ol class="list-group list-group-numbered">
+                                {% for question in general_questions %}
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div>{{ question.question_text }}</div>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ol>
+                        {% else %}
+                            <p class="text-muted">No general questions generated yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if skills_dict %}
+            {% for skill, questions in skills_dict.items %}
+            <div class="row mt-4">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Skill: {{ skill }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <ol class="list-group list-group-numbered">
+                                {% for question in questions %}
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div>{{ question.question_text }}</div>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="row mt-4">
+                <div class="col-lg-12">
+                    <div class="alert alert-info">
+                        No skill-specific questions generated yet.
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if request.user.id == job.user.id %}
+        <div class="row mt-4">
+            <div class="col-lg-12 text-center">
+                <a href="{% url 'question_generation:generate_job_questions' job_id=job.id %}" class="btn btn-primary">
+                    Regenerate Questions
+                </a>
+                <a href="{% url 'jobapp:single-job' id=job.id %}" class="btn btn-secondary ml-2">
+                    Back to Job Details
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %} 

@@ -1,0 +1,772 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load similarity_extras %}
+
+{% block content %}
+<section class="section-hero overlay inner-page bg-image" style="background-image: url(/static/images/hero_7.jpg);"
+    id="home-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-7">
+                <h1 class="text-white font-weight-bold">All Applicants </h1>
+                <div class="custom-breadcrumbs">
+                    <a href="{% url 'jobapp:home' %}">Home</a> <span class="mx-2 slash">/</span>
+                    <a href="{% url 'jobapp:dashboard' %}">Dashboard</a> <span class="mx-2 slash">/</span>
+                    <span class="text-white"><strong>All Applicants </strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="site-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 mb-5">
+                <div class="card">
+                    <h5 class="card-header text-center mb-5">All Applicants</h5>
+                    <div class="table-responsive">
+                        <table class="table text-center">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Job Title</th>
+                                    <th>Applied Date</th>
+                                    <th>Video</th>
+                                    <th>Similarity Score</th>
+                                    <th>Interview Videos</th>
+                                    <th>View Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for applicant in all_applicants %}
+                                <tr>
+                                    <td class="text-center"><a href="">{{ applicant.user.get_full_name }}</a></td>
+                                    <td>{{ applicant.job.title }}</td>
+                                    <td>{{ applicant.timestamp }}</td>
+                                    <td>
+                                        {% if applicant.video %}
+                                        <button class="btn btn-sm btn-success" onclick="playIntroVideo('{{ applicant.video.url }}', '{{ applicant.user.get_full_name }}')">
+                                            <i class="fas fa-play"></i> Play Intro
+                                        </button>
+                                        {% else %}
+                                        <span class="badge badge-warning">Not Available</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if applicant.similarity_score %}
+                                        <div class="progress" style="height: 25px;">
+                                            {% with score_percent=applicant.similarity_score|percentage %}
+                                            <div class="progress-bar bg-success" 
+                                                role="progressbar" 
+                                                style="width: {{ score_percent }}%;" 
+                                                aria-valuenow="{{ score_percent }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ score_percent }}%
+                                            </div>
+                                            {% endwith %}
+                                        </div>
+                                        {% else %}
+                                        <span class="badge badge-secondary">Not Calculated</span>
+                                        {% endif %}
+                                    </td>
+                                    <!-- Enhanced Interview Videos Button -->
+                                    <td>
+                                        <button class="btn btn-primary btn-sm btn-block" onclick="loadVideoPreview({{ applicant.id }}, {{ applicant.job.id }}, '{{ applicant.user.get_full_name }}')">
+                                            <i class="fas fa-video"></i> View Interview Videos
+                                        </button>
+                                    </td>
+                                    <!-- Details Button -->
+                                    <td>
+                                        <a class="btn btn-info btn-sm" href="{% url 'jobapp:applicant-details' applicant.user.id %}?job_id={{ applicant.job.id }}"
+                                                role="button">
+                                            <i class="fas fa-user"></i> View Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Video Modal for Introduction Video -->
+<div class="modal fade" id="introVideoModal" tabindex="-1" role="dialog" aria-labelledby="introVideoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="introVideoModalLabel">Introduction Video</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <video id="introVideoPlayer" controls class="w-100" style="max-height: 400px;">
+                    Your browser does not support the video element.
+                </video>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Video Preview Modal for Interview Answers -->
+<div class="modal fade" id="videoPreviewModal" tabindex="-1" role="dialog" aria-labelledby="videoPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="videoPreviewModalLabel">
+                    <i class="fas fa-user-tie"></i> Applicant Interview Preview
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Applicant Information Header -->
+                <div class="bg-light border-bottom p-4" id="applicantInfoSection">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h4 class="mb-2" id="applicantFullName">Loading...</h4>
+                            <p class="text-muted mb-1" id="applicantEmail">
+                                <i class="fas fa-envelope"></i> Loading...
+                            </p>
+                            <p class="text-muted mb-0" id="jobPosition">
+                                <i class="fas fa-briefcase"></i> Loading...
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-right">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <h6 class="text-primary mb-1">Application Status</h6>
+                                <span class="badge badge-success" id="applicationDate">Loading...</span>
+                                <div class="mt-2" id="similarityScoreSection">
+                                    <small class="text-muted">Introduction Score:</small>
+                                    <div class="progress mt-1" style="height: 10px;">
+                                        <div class="progress-bar bg-success" id="similarityProgressBar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Video Answers Section -->
+                <div class="p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-video text-primary"></i> Interview Video Answers
+                        </h5>
+                        <span class="badge badge-primary" id="answersCount">0 Answers</span>
+                    </div>
+                    
+                    <div id="videoPreviewContent">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            <p class="mt-3 text-muted">Loading video answers...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <a id="viewFullDetailsLink" href="#" class="btn btn-primary">
+                    <i class="fas fa-user-circle"></i> View Full Details
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Function to play introduction video
+function playIntroVideo(videoUrl, applicantName) {
+    const modal = $('#introVideoModal');
+    const video = document.getElementById('introVideoPlayer');
+    const title = document.getElementById('introVideoModalLabel');
+    
+    title.textContent = `${applicantName} - Introduction Video`;
+    video.src = videoUrl;
+    modal.modal('show');
+    
+    // Pause video when modal is closed
+    modal.on('hidden.bs.modal', function () {
+        video.pause();
+        video.currentTime = 0;
+    });
+}
+
+// Function to load video preview
+function loadVideoPreview(applicantId, jobId, applicantName) {
+    const modal = $('#videoPreviewModal');
+    const content = document.getElementById('videoPreviewContent');
+    const viewFullDetailsLink = document.getElementById('viewFullDetailsLink');
+    
+    // Reset modal content
+    resetModalContent();
+    
+    // Initially set a placeholder - will be updated once we get the user ID from backend
+    viewFullDetailsLink.href = '#';
+    
+    modal.modal('show');
+    
+    // Fetch video data via AJAX
+    fetch(`/questions/applicant/${applicantId}/job/${jobId}/answers/preview/`)
+        .then(response => response.json())
+        .then(data => {
+            // Populate applicant information from backend
+            if (data.applicant_info) {
+                populateApplicantInfo(data.applicant_info, data.job_title);
+                
+                // Set the correct link for full details using the user ID from backend
+                if (data.applicant_info.user_id) {
+                    viewFullDetailsLink.href = `/dashboard/employer/applicant/${data.applicant_info.user_id}/?job_id=${jobId}`;
+                }
+            }
+            
+            // Display video answers
+            if (data.success) {
+                displayProfessionalVideoPreview(data.answers);
+            } else {
+                displayNoAnswersMessage(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading data:', error);
+            content.innerHTML = `
+                <div class="alert alert-danger m-4">
+                    <i class="fas fa-exclamation-circle"></i> 
+                    Error loading applicant information. Please try again.
+                </div>
+            `;
+        });
+}
+
+// Function to reset modal content
+function resetModalContent() {
+    document.getElementById('applicantFullName').textContent = 'Loading...';
+    document.getElementById('applicantEmail').innerHTML = '<i class="fas fa-envelope"></i> Loading...';
+    document.getElementById('jobPosition').innerHTML = '<i class="fas fa-briefcase"></i> Loading...';
+    document.getElementById('applicationDate').textContent = 'Loading...';
+    document.getElementById('answersCount').textContent = '0 Answers';
+    document.getElementById('similarityProgressBar').style.width = '0%';
+    
+    const content = document.getElementById('videoPreviewContent');
+    content.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading video answers...</p>
+        </div>
+    `;
+}
+
+// Function to populate applicant information
+function populateApplicantInfo(applicantInfo, jobTitle) {
+    if (!applicantInfo) return;
+    
+    document.getElementById('applicantFullName').textContent = applicantInfo.name;
+    document.getElementById('applicantEmail').innerHTML = `<i class="fas fa-envelope"></i> ${applicantInfo.email}`;
+    document.getElementById('jobPosition').innerHTML = `<i class="fas fa-briefcase"></i> ${jobTitle}`;
+    document.getElementById('applicationDate').textContent = `Applied: ${applicantInfo.applied_date || 'Unknown'}`;
+    
+    const progressBar = document.getElementById('similarityProgressBar');
+    const score = applicantInfo.similarity_score || 0;
+    progressBar.style.width = `${score}%`;
+    progressBar.textContent = `${score}%`;
+    
+    // Update progress bar color based on score
+    progressBar.className = 'progress-bar';
+    if (score >= 80) {
+        progressBar.classList.add('bg-success');
+    } else if (score >= 60) {
+        progressBar.classList.add('bg-warning');
+    } else {
+        progressBar.classList.add('bg-danger');
+    }
+}
+
+// Function to display professional video preview
+function displayProfessionalVideoPreview(answers) {
+    const content = document.getElementById('videoPreviewContent');
+    const answersCountBadge = document.getElementById('answersCount');
+    
+    answersCountBadge.textContent = `${answers.length} Answer${answers.length !== 1 ? 's' : ''}`;
+    
+    if (!answers || answers.length === 0) {
+        displayNoAnswersMessage();
+        return;
+    }
+    
+    // Sort answers by question order or creation date
+    answers.sort((a, b) => {
+        // If we have creation dates, use them, otherwise maintain array order
+        if (a.created_at && b.created_at) {
+            return new Date(a.created_at) - new Date(b.created_at);
+        }
+        return 0;
+    });
+    
+    let html = '<div class="interview-questions-container">';
+    
+    answers.forEach((answer, index) => {
+        const hasTranscription = answer.transcription && 
+            !answer.transcription.startsWith('[') && 
+            answer.transcription.length > 0;
+        
+        const hasVideo = answer.video_url && answer.video_url.length > 0;
+        
+        html += `
+            <div class="question-block mb-4">
+                <!-- Question Header -->
+                <div class="question-header bg-primary text-white p-3 rounded-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="question-number-badge bg-white text-primary rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 35px; height: 35px; font-weight: bold;">
+                                ${index + 1}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Question ${index + 1}</h6>
+                                <small class="text-light opacity-75">
+                                    ${answer.created_at ? new Date(answer.created_at).toLocaleDateString() : 'Recent'}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="question-status">
+                            ${hasVideo ? 
+                                '<span class="badge badge-success"><i class="fas fa-video"></i> Video Available</span>' : 
+                                '<span class="badge badge-warning"><i class="fas fa-video-slash"></i> No Video</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Question Content -->
+                <div class="question-content bg-white border-left border-right border-bottom rounded-bottom">
+                    <!-- Question Text -->
+                    <div class="question-text-section p-4 bg-light border-bottom">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-quote-left text-primary mr-3 mt-1" style="font-size: 1.2em;"></i>
+                            <div class="flex-grow-1">
+                                <h6 class="text-primary mb-2 font-weight-bold">Question:</h6>
+                                <p class="mb-0 text-dark">${answer.question_text}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Video and Transcription Row -->
+                    <div class="row no-gutters">
+                        <!-- Video Section -->
+                        <div class="col-md-${hasTranscription ? '7' : '12'}">
+                            <div class="video-answer-section p-4">
+                                <h6 class="text-success mb-3 d-flex align-items-center">
+                                    <i class="fas fa-play-circle mr-2"></i> Video Answer
+                                </h6>
+                                ${hasVideo ? `
+                                    <div class="video-player-container position-relative">
+                                        <video controls class="w-100 rounded shadow-sm video-player" style="max-height: 300px; background-color: #000;">
+                                            <source src="${answer.video_url}" type="video/webm">
+                                            <source src="${answer.video_url}" type="video/mp4">
+                                            <source src="${answer.video_url}" type="video/mov">
+                                            Your browser does not support the video element.
+                                        </video>
+                                        <!-- Video Controls Overlay -->
+                                        <div class="video-info-overlay position-absolute" style="bottom: 10px; left: 10px;">
+                                            <span class="badge badge-dark bg-dark text-white px-2 py-1 rounded">
+                                                Answer ${index + 1}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="no-video-container text-center p-4 bg-light rounded">
+                                        <div class="mb-3">
+                                            <i class="fas fa-video-slash fa-3x text-muted"></i>
+                                        </div>
+                                        <h6 class="text-muted mb-2">No Video Answer</h6>
+                                        <p class="small text-muted mb-0">
+                                            The applicant has not provided a video answer for this question.
+                                        </p>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                        
+                        <!-- Transcription Section -->
+                        ${hasTranscription ? `
+                            <div class="col-md-5">
+                                <div class="transcription-section p-4 bg-light border-left h-100">
+                                    <h6 class="text-info mb-3 d-flex align-items-center">
+                                        <i class="fas fa-file-alt mr-2"></i> Transcription
+                                        <span class="badge badge-info badge-sm ml-auto">${answer.transcription.length} chars</span>
+                                    </h6>
+                                    <div class="transcription-content">
+                                        <div class="transcription-text bg-white p-3 rounded border-left-info">
+                                            <div class="transcription-quotes">
+                                                <i class="fas fa-quote-left text-info opacity-50 mr-1"></i>
+                                                <span class="text-dark">${answer.transcription.length > 250 ? 
+                                                    answer.transcription.substring(0, 250) + '...' : 
+                                                    answer.transcription}</span>
+                                                <i class="fas fa-quote-right text-info opacity-50 ml-1"></i>
+                                            </div>
+                                        </div>
+                                        ${answer.transcription.length > 250 ? 
+                                            '<small class="text-muted mt-2 d-block"><i class="fas fa-info-circle"></i> Full transcription available in detailed view</small>' : ''
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Answer Footer -->
+                    <div class="answer-footer bg-light p-3 border-top">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock mr-1"></i>
+                                    ${answer.created_at ? 
+                                        `Answered on ${new Date(answer.created_at).toLocaleDateString()} at ${new Date(answer.created_at).toLocaleTimeString()}` : 
+                                        'Answer timestamp not available'
+                                    }
+                                </small>
+                            </div>
+                            <div class="col-md-4 text-right">
+                                <div class="answer-stats">
+                                    ${hasVideo ? '<span class="badge badge-success badge-sm mr-1"><i class="fas fa-video"></i></span>' : ''}
+                                    ${hasTranscription ? '<span class="badge badge-info badge-sm"><i class="fas fa-file-alt"></i></span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    // Add comprehensive summary section
+    const videoCount = answers.filter(a => a.video_url).length;
+    const transcriptionCount = answers.filter(a => a.transcription && !a.transcription.startsWith('[')).length;
+    
+    html += `
+        <div class="interview-summary mt-4">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar mr-2"></i>Interview Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="summary-stat">
+                                <div class="stat-number text-primary display-4">${answers.length}</div>
+                                <div class="stat-label text-muted">Total Questions</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="summary-stat">
+                                <div class="stat-number text-success display-4">${videoCount}</div>
+                                <div class="stat-label text-muted">Video Answers</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="summary-stat">
+                                <div class="stat-number text-info display-4">${transcriptionCount}</div>
+                                <div class="stat-label text-muted">Transcriptions</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: ${(videoCount / answers.length) * 100}%;" 
+                                     title="Video completion rate">
+                                </div>
+                            </div>
+                            <small class="text-muted mt-1 d-block text-center">
+                                ${Math.round((videoCount / answers.length) * 100)}% Video completion rate
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+// Function to display no answers message
+function displayNoAnswersMessage(message = null) {
+    const content = document.getElementById('videoPreviewContent');
+    const answersCountBadge = document.getElementById('answersCount');
+    
+    answersCountBadge.textContent = '0 Answers';
+    
+    content.innerHTML = `
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-video-slash fa-4x text-muted"></i>
+            </div>
+            <h5 class="text-muted mb-2">No Video Answers Yet</h5>
+            <p class="text-muted">
+                ${message || 'This applicant has not answered any video interview questions yet.'}
+            </p>
+            <div class="mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    Video answers will appear here once the applicant completes their interview.
+                </small>
+            </div>
+        </div>
+    `;
+}
+
+// Cleanup when modals are closed
+$('#videoPreviewModal').on('hidden.bs.modal', function () {
+    // Pause all videos in the modal
+    $(this).find('video').each(function() {
+        this.pause();
+        this.currentTime = 0;
+    });
+});
+</script>
+
+<style>
+/* Professional styling for video preview modal */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.modal-xl .modal-dialog {
+    max-width: 95%;
+}
+
+/* New Question Block Styling */
+.interview-questions-container {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.question-block {
+    border: 1px solid #e3e6f0;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.question-block:hover {
+    box-shadow: 0 8px 25px rgba(0,123,255,0.15);
+}
+
+.question-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border-bottom: 2px solid #0056b3;
+}
+
+.question-number-badge {
+    font-size: 16px;
+    min-width: 35px;
+    min-height: 35px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.question-content {
+    border: 1px solid #e3e6f0;
+}
+
+.question-text-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 50%, #f8f9fa 100%);
+}
+
+.video-answer-section {
+    background-color: #ffffff;
+}
+
+.video-player {
+    border: 2px solid #dee2e6;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.video-player:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.2);
+}
+
+.video-player-container {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-info-overlay {
+    z-index: 10;
+}
+
+.no-video-container {
+    border: 2px dashed #dee2e6;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.transcription-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 3px solid #17a2b8 !important;
+}
+
+.transcription-text {
+    background-color: white !important;
+    border: 1px solid #bee5eb;
+    border-left: 4px solid #17a2b8 !important;
+    position: relative;
+}
+
+.border-left-info {
+    border-left: 4px solid #17a2b8 !important;
+}
+
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.answer-footer {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-top: 1px solid #dee2e6 !important;
+}
+
+/* Interview Summary Styling */
+.interview-summary .card {
+    box-shadow: 0 4px 15px rgba(0,123,255,0.1);
+}
+
+.summary-stat .stat-number {
+    font-weight: bold;
+    line-height: 1;
+}
+
+.summary-stat .stat-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Status badges enhancement */
+.badge-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+.badge-info {
+    background: linear-gradient(135deg, #17a2b8, #20c997);
+}
+
+.badge-sm {
+    font-size: 0.7rem;
+    padding: 0.3em 0.6em;
+    font-weight: 500;
+}
+
+/* Question status styling */
+.question-status .badge {
+    font-size: 0.75rem;
+    padding: 0.4em 0.8em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .modal-xl .modal-dialog {
+        max-width: 98%;
+        margin: 0.5rem;
+    }
+    
+    .video-player {
+        max-height: 200px !important;
+    }
+    
+    .interview-questions-container {
+        max-height: 60vh;
+    }
+    
+    .question-text-section {
+        padding: 1rem !important;
+    }
+    
+    .video-answer-section {
+        padding: 1rem !important;
+    }
+    
+    .transcription-section {
+        padding: 1rem !important;
+    }
+    
+    .row.no-gutters .col-md-7,
+    .row.no-gutters .col-md-5 {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Animation for loading */
+@keyframes slideInUp {
+    from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+.question-block {
+    animation: slideInUp 0.4s ease-in-out;
+}
+
+.question-block:nth-child(even) {
+    animation-delay: 0.1s;
+}
+
+/* Custom scrollbar for modal */
+.interview-questions-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.interview-questions-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.interview-questions-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-radius: 10px;
+}
+
+.interview-questions-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+}
+</style>
+
+{% endblock %}
