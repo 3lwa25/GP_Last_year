@@ -2,6 +2,34 @@
 {% load static %}
 {% block content %}
 
+<style>
+/* Job Status Styling */
+.job-listing.closed {
+  opacity: 0.7;
+  border-left: 4px solid #dc3545;
+}
+
+.job-listing.open {
+  border-left: 4px solid #28a745;
+}
+
+.badge-success {
+  background-color: #28a745 !important;
+}
+
+.badge-danger {
+  background-color: #dc3545 !important;
+}
+
+.text-success {
+  color: #28a745 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+</style>
+
 
 <!-- HOME -->
 <section class="section-hero overlay inner-page bg-image" style="background-image: url(/static/images/hero_7.jpg);"
@@ -9,7 +37,7 @@
   <div class="container">
     <div class="row">
       <div class="col-md-7">
-        <h1 class="text-white font-weight-bold">Job listing</h1>
+        <h1 class="text-white font-weight-bold">Job listing{% if total_jobs %} ({{ total_jobs }} jobs - {{ open_jobs }} open, {{ closed_jobs }} closed){% endif %}</h1>
         <div class="custom-breadcrumbs">
           <a href="{% url 'jobapp:home' %}">Home</a> <span class="mx-2 slash">/</span>
           <span class="text-white"><strong>Jobs</strong></span>
@@ -22,9 +50,11 @@
 <section class="site-section" id="next">
   <div class="container">
 
+    {% if page_obj %}
+    <!-- DEBUG: Showing {{ page_obj|length }} jobs on this page -->
     <ul class="job-listings mb-5">
       {% for job in page_obj %}
-      <li class="job-listing d-block d-sm-flex pb-3 pb-sm-0 align-items-center">
+      <li class="job-listing d-block d-sm-flex pb-3 pb-sm-0 align-items-center {% if job.is_closed %}closed{% else %}open{% endif %}">
         <a href="{% url 'jobapp:single-job' job.id %}"></a>
         <div class="job-listing-logo">
           <img src="/static/images/j.jpg" alt="Image" class="img-fluid">
@@ -33,6 +63,7 @@
         <div class="job-listing-about d-sm-flex custom-width w-100 justify-content-between mx-4">
           <div class="job-listing-position custom-width w-50 mb-3 mb-sm-0">
             <div class="job-listing-meta">
+              <!-- Job Type Badge -->
               {% if job.job_type == '1' %}
                 <span class="badge badge-primary">
                   Full Time
@@ -46,10 +77,33 @@
                   Internship
                 </span>
                 {% endif %}
+              
+              <!-- Deadline Status Badge -->
+              {% if job.is_closed %}
+                <span class="badge badge-danger ml-2">
+                  <i class="fa fa-times-circle"></i> CLOSED
+                </span>
+              {% else %}
+                <span class="badge badge-success ml-2">
+                  <i class="fa fa-check-circle"></i> OPEN
+                </span>
+              {% endif %}
             </div>
           </br>
             <h2>{{ job.title}}</h2>
             <strong>{{ job.company_name }}</strong>
+            
+            <!-- Deadline Information -->
+            <div class="mt-2">
+              <small class="text-muted">
+                <i class="fa fa-calendar"></i> Deadline: {{ job.last_date }}
+                {% if job.is_closed %}
+                  <span class="text-danger">(Expired)</span>
+                {% else %}
+                  <span class="text-success">({{ job.last_date|timeuntil }} remaining)</span>
+                {% endif %}
+              </small>
+            </div>
           </div>
           <div class="job-listing-location mb-3 mb-sm-0 custom-width w-25">
             <span class="icon-room"></span> {{ job.location }}
@@ -58,9 +112,13 @@
           </div>
       </li>
       {% endfor %}
-
-
     </ul>
+    {% else %}
+    <div class="alert alert-info text-center">
+      <h4>No Jobs Available</h4>
+      <p>There are currently no published jobs available. Please check back later or create a job if you're an employer.</p>
+    </div>
+    {% endif %}
 
 
     {% include 'jobapp/paginator.html' %}

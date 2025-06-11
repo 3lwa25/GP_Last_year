@@ -12,8 +12,17 @@
         <h1 class="text-white font-weight-bold">Job listing</h1>
         <div class="custom-breadcrumbs">
           <a href="{% url 'jobapp:home' %}">Home</a> <span class="mx-2 slash">/</span>
-          <span class="text-white"><strong>Search Result</strong></span>
+          <span class="text-white"><strong>Search Result{% if total_results %} ({{ total_results }} jobs found){% endif %}</strong></span>
         </div>
+      </div>
+    </div>
+    
+    <!-- Search Form -->
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <form method="GET" action="{% url 'jobapp:search_result' %}" class="search-jobs-form">
+          {% include 'jobapp/search.html' %}
+        </form>
       </div>
     </div>
   </div>
@@ -22,6 +31,7 @@
 <section class="site-section services-section bg-light block__62849" id="next-section">
   <div class="container">
 
+    {% if page_obj %}
     <div class="row">
       {% for job in page_obj %}
       <div class="col-6 col-md-6 col-lg-4 mb-4 mb-lg-5">
@@ -51,6 +61,17 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="row">
+      <div class="col-12 text-center">
+        <div class="alert alert-info">
+          <h4>No jobs found</h4>
+          <p>Sorry, no jobs match your search criteria. Try adjusting your search filters or browse all available jobs.</p>
+          <a href="{% url 'jobapp:home' %}" class="btn btn-primary">Browse All Jobs</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     
     {% include 'jobapp/paginator.html' %}

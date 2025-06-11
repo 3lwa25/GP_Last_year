@@ -31,9 +31,26 @@ User = get_user_model()
 
 
 def home_view(request):
+    from django.utils import timezone
+    
+    # Update job status based on deadline before displaying
+    today = timezone.now().date()
+    all_published_jobs = Job.objects.filter(is_published=True)
+    
+    for job in all_published_jobs:
+        if job.last_date < today:
+            # Job deadline has passed - mark as closed
+            if not job.is_closed:
+                job.is_closed = True
+                job.save()
+        else:
+            # Job deadline hasn't passed - mark as open
+            if job.is_closed:
+                job.is_closed = False
+                job.save()
 
     published_jobs = Job.objects.filter(is_published=True).order_by('-timestamp')
-    jobs = published_jobs.filter(is_closed=False)
+    jobs = published_jobs.filter(is_closed=False)  # Only show open jobs on homepage
     total_candidates = User.objects.filter(role='employee').count()
     total_companies = User.objects.filter(role='employer').count()
     paginator = Paginator(jobs, 3)
@@ -64,16 +81,34 @@ def home_view(request):
         }    
         return JsonResponse(data)
     
+    # Get REAL job titles and locations from ALL published jobs in database
+    all_published_jobs = Job.objects.filter(is_published=True)
+    job_titles = list(all_published_jobs.values_list('title', flat=True).distinct().order_by('title'))
+    job_locations = list(all_published_jobs.values_list('location', flat=True).distinct().order_by('location'))
+    
+    # Clean the data - remove empty values
+    job_titles = [title for title in job_titles if title and title.strip()]
+    job_locations = [location for location in job_locations if location and location.strip()]
+    
+    # Debug output to help identify caching issues
+    print(f"DEBUG: Sending {len(job_titles)} job titles to dropdown: {job_titles}")
+    print(f"DEBUG: Sending {len(job_locations)} job locations to dropdown: {job_locations}")
+    
     context = {
-
-    'total_candidates': total_candidates,
-    'total_companies': total_companies,
-    'total_jobs': len(jobs),
-    'total_completed_jobs':len(published_jobs.filter(is_closed=True)),
-    'page_obj': page_obj
+        'total_candidates': total_candidates,
+        'total_companies': total_companies,
+        'total_jobs': len(jobs),
+        'total_completed_jobs':len(published_jobs.filter(is_closed=True)),
+        'page_obj': page_obj,
+        'job_titles': job_titles,
+        'job_locations': job_locations
     }
-    print('ok')
-    return render(request, 'jobapp/index.html', context)
+    response = render(request, 'jobapp/index.html', context)
+    # Add cache-busting headers to ensure fresh data
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 from django.shortcuts import render
@@ -93,22 +128,55 @@ def post_job(request):
         'categories': categories,  # Pass categories to the template
     })
 
-@cache_page(60 * 15)
 def job_list_View(request):
     """
-
+    Display all published jobs with deadline-based status control
     """
-    job_list = Job.objects.order_by('-timestamp')
+    from django.utils import timezone
+    
+    # Get all published jobs
+    all_published_jobs = Job.objects.filter(is_published=True).order_by('-timestamp')
+    
+    # Update job status based on deadline
+    today = timezone.now().date()
+    for job in all_published_jobs:
+        if job.last_date < today:
+            # Job deadline has passed - mark as closed
+            if not job.is_closed:
+                job.is_closed = True
+                job.save()
+        else:
+            # Job deadline hasn't passed - mark as open
+            if job.is_closed:
+                job.is_closed = False
+                job.save()
+    
+    # Get fresh data after updating statuses
+    job_list = Job.objects.filter(is_published=True).order_by('-timestamp')
+    
+    # Debug output to track job listing
+    open_jobs = job_list.filter(is_closed=False).count()
+    closed_jobs = job_list.filter(is_closed=True).count()
+    print(f"DEBUG JOB LISTING: Found {job_list.count()} total published jobs ({open_jobs} open, {closed_jobs} closed)")
+    
     paginator = Paginator(job_list, 6)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     context = {
-
         'page_obj': page_obj,
-
+        'total_jobs': job_list.count(),
+        'open_jobs': open_jobs,
+        'closed_jobs': closed_jobs,
+        'today': today,
     }
-    return render(request, 'jobapp/job-list.html', context)
+    
+    # Add cache-busting headers to ensure fresh job data
+    response = render(request, 'jobapp/job-list.html', context)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 # @login_required(login_url=reverse_lazy('account:login'))
@@ -152,11 +220,12 @@ def create_job_View(request):
         if form.is_valid():
             instance = form.save(commit=False)
             instance.user = user
+            instance.is_published = True  # Auto-publish jobs so they appear in search dropdowns
             instance.save()
             # for save tags
             form.save_m2m()
             messages.success(
-                    request, 'You are successfully posted your job! Please wait for review.')
+                    request, 'You have successfully posted your job! It is now live and searchable.')
             return redirect(reverse("jobapp:single-job", kwargs={
                                     'id': instance.id
                                     }))
@@ -208,7 +277,7 @@ def search_result_view(request):
 
     """
 
-    job_list = Job.objects.order_by('-timestamp')
+    job_list = Job.objects.filter(is_published=True).order_by('-timestamp')
 
     # Keywords
     if 'job_title_or_company_name' in request.GET:
@@ -230,29 +299,35 @@ def search_result_view(request):
         if job_type:
             job_list = job_list.filter(job_type__iexact=job_type)
 
-    # job_title_or_company_name = request.GET.get('text')
-    # location = request.GET.get('location')
-    # job_type = request.GET.get('type')
+    # Get all job titles and locations for the search dropdowns
+    all_published_jobs = Job.objects.filter(is_published=True)
+    job_titles = list(all_published_jobs.values_list('title', flat=True).distinct().order_by('title'))
+    job_locations = list(all_published_jobs.values_list('location', flat=True).distinct().order_by('location'))
+    
+    # Clean the data - remove empty values
+    job_titles = [title for title in job_titles if title and title.strip()]
+    job_locations = [location for location in job_locations if location and location.strip()]
 
-    #     job_list = Job.objects.all()
-    #     job_list = job_list.filter(
-    #         Q(job_type__iexact=job_type) |
-    #         Q(title__icontains=job_title_or_company_name) |
-    #         Q(location__icontains=location)
-    #     ).distinct()
-
-    # job_list = Job.objects.filter(job_type__iexact=job_type) | Job.objects.filter(
-    #     location_icontains=location) | Job.objects.filter(titleicontains=text) | Job.objects.filter(company_name_icontains=text)
+    # Debug output for search results page
+    print(f"DEBUG SEARCH: Sending {len(job_titles)} job titles to search dropdown: {job_titles}")
+    print(f"DEBUG SEARCH: Sending {len(job_locations)} job locations to search dropdown: {job_locations}")
 
     paginator = Paginator(job_list, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
     context = {
-
         'page_obj': page_obj,
-
+        'job_titles': job_titles,
+        'job_locations': job_locations,
+        'total_results': job_list.count(),
     }
-    return render(request, 'jobapp/result.html', context)
+    response = render(request, 'jobapp/result.html', context)
+    # Add cache-busting headers to search results too
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 # Importing necessary modules

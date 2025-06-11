@@ -1,23 +1,52 @@
 
 
 
-  <div class="row mb-5">
-    <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
-      <input type="text"  name="job_title_or_company_name" class="form-control form-control-lg" placeholder="Job title">
+      <!-- DEBUG: Dropdown data loaded at {% now "Y-m-d H:i:s" %} -->
+      <!-- DEBUG: Job titles count: {{ job_titles|length }}, Job locations count: {{ job_locations|length }} -->
+      
+      <div class="row mb-5">
+      <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
+        <select name="job_title_or_company_name" class="selectpicker" data-style="btn-white btn-lg" data-width="100%" data-live-search="true"
+          title="Select Job Title" data-timestamp="{% now "U" %}">
+          <option value="">All Job Titles</option>
+          {% for title in job_titles %}
+            <option value="{{ title }}" {% if request.GET.job_title_or_company_name == title %}selected{% endif %}>{{ title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
+        <select name="location" class="selectpicker" data-style="btn-white btn-lg" data-width="100%" data-live-search="true"
+          title="Select Location" data-timestamp="{% now "U" %}">
+          <option value="">All Locations</option>
+          {% for location in job_locations %}
+            <option value="{{ location }}" {% if request.GET.location == location %}selected{% endif %}>{{ location }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
+        <select  name="job_type" class="selectpicker" data-style="btn-white btn-lg" data-width="100%" data-live-search="true"
+          title="Select Job Type">
+          <option value="">All Job Types</option>
+          <option value="1" {% if request.GET.job_type == "1" %}selected{% endif %}>Full Time</option>
+          <option value="2" {% if request.GET.job_type == "2" %}selected{% endif %}>Part Time</option>
+          <option value="3" {% if request.GET.job_type == "3" %}selected{% endif %}>Internship</option>
+        </select>
+      </div>
+      <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
+        <button type="submit" class="btn btn-primary btn-lg btn-block text-white btn-search"><span
+            class="icon-search icon mr-2"></span>Search Job</button>
+      </div>
     </div>
-    <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
-      <input type="text"  name="location" class="form-control form-control-lg" placeholder="Location">
-    </div>
-    <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
-      <select  name="job_type" class="selectpicker" data-style="btn-white btn-lg" data-width="100%" data-live-search="true"
-        title="Select Job Type">
-        <option value="1">Full Time</option>
-        <option value="2">Part Time</option>
-        <option value="3">Internship</option>
-      </select>
-    </div>
-    <div class="col-12 col-sm-6 col-md-6 col-lg-3 mb-4 mb-lg-0">
-      <button type="submit" class="btn btn-primary btn-lg btn-block text-white btn-search"><span
-          class="icon-search icon mr-2"></span>Search Job</button>
-    </div>
-  </div>
+
+<!-- Force refresh of selectpicker dropdowns -->
+<script>
+$(document).ready(function() {
+    // Force refresh selectpicker to prevent caching
+    $('.selectpicker').selectpicker('refresh');
+    $('.selectpicker').selectpicker('render');
+    
+    console.log('DEBUG: Job titles loaded:', {{ job_titles|length }});
+    console.log('DEBUG: Job locations loaded:', {{ job_locations|length }});
+    console.log('DEBUG: Selectpicker refreshed at:', new Date());
+});
+</script>
